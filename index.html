@@ -1,0 +1,215 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Campus Lost & Found Portal</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+
+<style>
+body {
+    font-family: Arial;
+    background: #f4f4f4;
+    margin: 0;
+}
+
+.container {
+    max-width: 700px;
+    margin: 20px auto;
+    background: white;
+    padding: 20px;
+    border-radius: 10px;
+}
+
+h2 { text-align: center; }
+
+input, textarea, select, button {
+    width: 100%;
+    margin: 5px 0;
+    padding: 10px;
+}
+
+button {
+    background: #007bff;
+    color: white;
+    border: none;
+    cursor: pointer;
+}
+
+.item {
+    background: #eee;
+    padding: 10px;
+    margin-top: 10px;
+    border-radius: 5px;
+}
+
+img {
+    max-width: 100%;
+    height: 150px;
+    object-fit: cover;
+}
+</style>
+</head>
+
+<body>
+
+<!-- LOGIN -->
+<div class="container" id="loginDiv">
+    <h2>Login / Register</h2>
+    <input type="text" id="name" placeholder="Name">
+    <input type="text" id="dept" placeholder="Department">
+    <input type="text" id="contact" placeholder="Contact">
+    <button onclick="login()">Enter Portal</button>
+</div>
+
+<!-- APP -->
+<div class="container" id="appDiv" style="display:none;">
+    <h2>Lost & Found Portal</h2>
+
+    <h3>Post Item</h3>
+    <input type="text" id="itemName" placeholder="Item name">
+    <textarea id="desc" placeholder="Description"></textarea>
+    <input type="text" id="location" placeholder="Location">
+    <input type="file" id="image">
+    <select id="type">
+        <option value="Lost">Lost</option>
+        <option value="Found">Found</option>
+    </select>
+    <button onclick="addItem()">Post</button>
+
+    <input type="text" id="search" placeholder="Search..." onkeyup="searchItems()">
+
+    <h3>All Items</h3>
+    <div id="itemsList"></div>
+
+    <h3>Admin Panel</h3>
+    <button onclick="clearAll()">Remove All Posts</button>
+
+    <button onclick="logout()">Logout</button>
+</div>
+
+<script>
+let items = JSON.parse(localStorage.getItem("items")) || [];
+
+function login() {
+    let name = document.getElementById("name").value;
+
+    if(name === "") {
+        alert("Enter details");
+        return;
+    }
+
+    localStorage.setItem("user", name);
+    document.getElementById("loginDiv").style.display = "none";
+    document.getElementById("appDiv").style.display = "block";
+    loadItems();
+}
+
+function logout() {
+    localStorage.removeItem("user");
+    location.reload();
+}
+
+function addItem() {
+    let file = document.getElementById("image").files[0];
+    let reader = new FileReader();
+
+    reader.onload = function() {
+        let newItem = {
+            id: Date.now(),
+            name: document.getElementById("itemName").value,
+            desc: document.getElementById("desc").value,
+            location: document.getElementById("location").value,
+            type: document.getElementById("type").value,
+            image: reader.result,
+            owner: localStorage.getItem("user"),
+            claims: []
+        };
+
+        items.push(newItem);
+        saveItems();
+        loadItems();
+    };
+
+    if(file) reader.readAsDataURL(file);
+    else alert("Upload image");
+}
+
+function saveItems() {
+    localStorage.setItem("items", JSON.stringify(items));
+}
+
+function loadItems(filtered = items) {
+    let list = document.getElementById("itemsList");
+    list.innerHTML = "";
+
+    filtered.forEach(item => {
+        let div = document.createElement("div");
+        div.className = "item";
+
+        let claimBtn = item.owner !== localStorage.getItem("user") 
+            ? `<button onclick="claimItem(${item.id})">Request Claim</button>`
+            : "";
+
+        div.innerHTML = `
+            <strong>${item.name} (${item.type})</strong><br>
+            <small>${item.desc}</small><br>
+            <small>Location: ${item.location}</small><br>
+            <img src="${item.image}"><br>
+            ${claimBtn}
+            <button onclick="deleteItem(${item.id})">Delete</button>
+        `;
+
+        list.appendChild(div);
+    });
+}
+
+function deleteItem(id) {
+    items = items.filter(i => i.id !== id);
+    saveItems();
+    loadItems();
+}
+
+function claimItem(id) {
+    let user = localStorage.getItem("user");
+
+    items = items.map(i => {
+        if(i.id === id) {
+            i.claims.push(user);
+            alert("Claim request sent");
+        }
+        return i;
+    });
+
+    saveItems();
+}
+
+function searchItems() {
+    let key = document.getElementById("search").value.toLowerCase();
+
+    let filtered = items.filter(i =>
+        i.name.toLowerCase().includes(key) ||
+        i.desc.toLowerCase().includes(key)
+    );
+
+    loadItems(filtered);
+}
+
+function clearAll() {
+    if(confirm("Admin: Delete all posts?")) {
+        localStorage.removeItem("items");
+        items = [];
+        loadItems();
+    }
+}
+
+window.onload = function() {
+    if(localStorage.getItem("user")) {
+        document.getElementById("loginDiv").style.display = "none";
+        document.getElementById("appDiv").style.display = "block";
+        loadItems();
+    }
+};
+</script>
+
+</body>
+</html>
